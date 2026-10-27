@@ -1,0 +1,5 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {"type": "Report", "displayName": "Lakehouse Table Health"},
+  "config": {"version": "2.0", "logicalId": "676703bc-c150-4502-ba37-4049ea7c234e"}
+}

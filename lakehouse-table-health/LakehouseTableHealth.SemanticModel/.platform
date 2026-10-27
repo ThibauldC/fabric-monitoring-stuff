@@ -1,0 +1,5 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {"type": "SemanticModel", "displayName": "Lakehouse Table Health"},
+  "config": {"version": "2.0", "logicalId": "07994c9a-674b-4051-a195-de486d2422f9"}
+}

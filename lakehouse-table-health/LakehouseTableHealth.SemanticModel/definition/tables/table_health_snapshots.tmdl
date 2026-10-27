@@ -1,0 +1,343 @@
+table table_health_snapshots
+	lineageTag: b5b65f36-bf29-5a88-81f7-da908f40486a
+
+	measure 'Latest Snapshot' =
+			CALCULATE ( MAX ( table_health_snapshots[snapshot_ts] ), REMOVEFILTERS ( table_health_snapshots[snapshot_ts] ), REMOVEFILTERS ( table_health_snapshots[status] ), REMOVEFILTERS ( table_health_snapshots[table] ) )
+		displayFolder: Helpers
+		lineageTag: dc7b5bf8-106b-5927-9a0d-f3b8f2674e31
+
+	measure 'Tables' =
+			VAR __ls = [Latest Snapshot]
+			RETURN COALESCE ( CALCULATE ( COUNTROWS ( SUMMARIZE ( table_health_snapshots, table_health_snapshots[workspace], table_health_snapshots[lakehouse], table_health_snapshots[table] ) ), table_health_snapshots[snapshot_ts] = __ls ), 0 )
+		displayFolder: KPI
+		lineageTag: b864d8cb-e9db-5c2f-945a-9f7eaa694d7a
+
+	measure 'Healthy' =
+			VAR __ls = [Latest Snapshot]
+			RETURN COALESCE ( CALCULATE ( COUNTROWS ( SUMMARIZE ( table_health_snapshots, table_health_snapshots[workspace], table_health_snapshots[lakehouse], table_health_snapshots[table] ) ), table_health_snapshots[snapshot_ts] = __ls, KEEPFILTERS ( table_health_snapshots[status] = "healthy" ) ), 0 )
+		displayFolder: KPI
+		lineageTag: 400a2fb0-a218-58d8-ad37-1725221022f4
+
+	measure 'Unhealthy' =
+			VAR __ls = [Latest Snapshot]
+			RETURN COALESCE ( CALCULATE ( COUNTROWS ( SUMMARIZE ( table_health_snapshots, table_health_snapshots[workspace], table_health_snapshots[lakehouse], table_health_snapshots[table] ) ), table_health_snapshots[snapshot_ts] = __ls, KEEPFILTERS ( table_health_snapshots[status] = "unhealthy" ) ), 0 )
+		displayFolder: KPI
+		lineageTag: 33e87006-0910-5419-933b-3afc39e8ffde
+
+	measure 'Unknown' =
+			VAR __ls = [Latest Snapshot]
+			RETURN COALESCE ( CALCULATE ( COUNTROWS ( SUMMARIZE ( table_health_snapshots, table_health_snapshots[workspace], table_health_snapshots[lakehouse], table_health_snapshots[table] ) ), table_health_snapshots[snapshot_ts] = __ls, KEEPFILTERS ( table_health_snapshots[status] = "unknown" ) ), 0 )
+		displayFolder: KPI
+		lineageTag: 371d362f-2baf-5ec6-815f-fc4733f19cb7
+
+	measure 'Healthy %' =
+			DIVIDE ( [Healthy], [Tables] )
+		formatString: 0.0%
+		displayFolder: KPI
+		lineageTag: 446c7ba4-8010-5376-96ce-7cf8be9389b2
+
+	measure 'Anomaly Code' =
+			VAR __ls = [Latest Snapshot]
+			RETURN CALCULATE ( MAX ( table_health_snapshots[PotentialAnomalyType] ), table_health_snapshots[snapshot_ts] = __ls )
+		formatString: 0
+		displayFolder: Per table
+		lineageTag: adff8cdd-35d2-5f1c-a596-c3b7e5f76a60
+
+	measure 'Anomaly Reason' =
+			VAR __ls = [Latest Snapshot]
+			RETURN CALCULATE ( SELECTEDVALUE ( table_health_snapshots[PotentialAnomalyDescription] ), table_health_snapshots[snapshot_ts] = __ls )
+		displayFolder: Per table
+		lineageTag: 7678edb3-0875-51e0-ab2b-cb0ed7451c79
+
+	measure 'Health Status' =
+			VAR __ls = [Latest Snapshot]
+			RETURN CALCULATE ( SELECTEDVALUE ( table_health_snapshots[status] ), table_health_snapshots[snapshot_ts] = __ls )
+		displayFolder: Per table
+		lineageTag: 8190c2c4-e402-55e9-af7a-9f23e17d5a78
+
+	measure 'Files' =
+			VAR __ls = [Latest Snapshot]
+			RETURN CALCULATE ( SUM ( table_health_snapshots[FileCount] ), table_health_snapshots[snapshot_ts] = __ls )
+		formatString: #,0
+		displayFolder: Per table
+		lineageTag: ac4ab2ee-70ef-5487-8006-55ba7c2fbca5
+
+	measure 'Size MB' =
+			VAR __ls = [Latest Snapshot]
+			RETURN DIVIDE ( CALCULATE ( SUM ( table_health_snapshots[FileSizeInBytes] ), table_health_snapshots[snapshot_ts] = __ls ), 1048576 )
+		formatString: #,0.0
+		displayFolder: Per table
+		lineageTag: 209d8cc4-ca13-555e-8e34-9a6ef7abf874
+
+	measure 'Avg File MB' =
+			DIVIDE ( [Size MB], [Files] )
+		formatString: #,0.0
+		displayFolder: Per table
+		lineageTag: e38fd525-2407-5ac7-b677-1c83d68f2630
+
+	measure 'Rows' =
+			VAR __ls = [Latest Snapshot]
+			RETURN CALCULATE ( SUM ( table_health_snapshots[PhysicalRowCount] ), table_health_snapshots[snapshot_ts] = __ls )
+		formatString: #,0
+		displayFolder: Per table
+		lineageTag: 52c2a75c-46cb-52d8-8ab9-07363c2a9bed
+
+	measure 'Deleted Rows %' =
+			VAR __ls = [Latest Snapshot]
+			RETURN DIVIDE ( CALCULATE ( SUM ( table_health_snapshots[DeletedRowCount] ), table_health_snapshots[snapshot_ts] = __ls ), [Rows] )
+		formatString: 0.0%
+		displayFolder: Per table
+		lineageTag: c518d1a1-199d-5a63-8e10-e8c4fcea9ef5
+
+	measure 'Last Error' =
+			VAR __ls = [Latest Snapshot]
+			RETURN CALCULATE ( SELECTEDVALUE ( table_health_snapshots[error] ), table_health_snapshots[snapshot_ts] = __ls )
+		displayFolder: Per table
+		lineageTag: a6fac1ba-5f07-5643-8937-a9c92eadfda1
+
+	measure 'Health Meter HTML' =
+			VAR __h = COALESCE ( [Healthy], 0 )
+			VAR __u = COALESCE ( [Unhealthy], 0 )
+			VAR __k = COALESCE ( [Unknown], 0 )
+			VAR __t = __h + __u + __k
+			VAR __L = 251.327
+			VAR __lh = DIVIDE ( __h, __t, 0 ) * __L
+			VAR __lu = DIVIDE ( __u, __t, 0 ) * __L
+			VAR __lk = DIVIDE ( __k, __t, 0 ) * __L
+			VAR __pct = FORMAT ( DIVIDE ( __h, __t, 0 ), "0%" )
+			VAR __arc = "M20 100 A80 80 0 0 1 180 100"
+			VAR __track = "<path d='" & __arc & "' fill='none' stroke='#eef0f3' stroke-width='22'/>"
+			VAR __segH = "<path d='" & __arc & "' fill='none' stroke='#2E8B57' stroke-width='22' stroke-dasharray='" & __lh & " 400' stroke-dashoffset='0'/>"
+			VAR __segU = "<path d='" & __arc & "' fill='none' stroke='#D9822B' stroke-width='22' stroke-dasharray='" & __lu & " 400' stroke-dashoffset='" & -__lh & "'/>"
+			VAR __segK = "<path d='" & __arc & "' fill='none' stroke='#9ca3af' stroke-width='22' stroke-dasharray='" & __lk & " 400' stroke-dashoffset='" & -( __lh + __lu ) & "'/>"
+			VAR __cH = "<div style='flex:1;text-align:center;border-top:3px solid #2E8B57;padding-top:4px'><div style='font-size:22px;font-weight:600;color:#2E8B57'>" & __h & "</div><div style='font-size:11px;color:#6b7280'>Healthy</div></div>"
+			VAR __cU = "<div style='flex:1;text-align:center;border-top:3px solid #D9822B;padding-top:4px'><div style='font-size:22px;font-weight:600;color:#D9822B'>" & __u & "</div><div style='font-size:11px;color:#6b7280'>Unhealthy</div></div>"
+			VAR __cK = "<div style='flex:1;text-align:center;border-top:3px solid #9ca3af;padding-top:4px'><div style='font-size:22px;font-weight:600;color:#6b7280'>" & __k & "</div><div style='font-size:11px;color:#6b7280'>Unknown</div></div>"
+			RETURN
+			"<div style='font-family:Segoe UI,Arial,sans-serif;padding:4px 8px;height:100%'>"
+			& "<div style='font-size:14px;font-weight:600;color:#1f2937'>Table health (latest snapshot)</div>"
+			& "<div style='position:relative;width:240px;margin:0 auto'>"
+			& "<svg viewBox='0 0 200 112' width='240'>" & __track & __segH & __segU & __segK & "</svg>"
+			& "<div style='position:absolute;left:0;right:0;bottom:6px;text-align:center'>"
+			& "<div style='font-size:30px;font-weight:700;color:#1f2937;line-height:1'>" & __pct & "</div>"
+			& "<div style='font-size:11px;color:#6b7280'>healthy of " & __t & " tables</div></div></div>"
+			& "<div style='display:flex;gap:10px;margin-top:6px'>"
+			& __cH & __cU & __cK
+			& "</div></div>"
+		displayFolder: HTML
+		lineageTag: 7d1c2a52-3f0e-4d9b-9a54-5b6e0c1f8a10
+
+	measure 'Header HTML' =
+			VAR __ls = [Latest Snapshot]
+			RETURN "<div style='font-family:Segoe UI,Arial,sans-serif;color:#0B1930;display:flex;align-items:center;justify-content:space-between;height:90px;'><div style='display:flex;gap:24px;align-items:center'><svg width='74' height='74' viewBox='0 0 74 74'><path d='M7 30 L37 6 L67 30 V62 Q67 67 57 65 L48 69 L30 65 L17 67 Q7 67 7 62 Z' fill='none' stroke='#244766' stroke-width='3'/><ellipse cx='38' cy='35' rx='10' ry='4' fill='none' stroke='#09A89E' stroke-width='3'/><path d='M28 35 V51 C28 57 48 57 48 51 V35 M28 43 C28 49 48 49 48 43' fill='none' stroke='#09A89E' stroke-width='3'/></svg><div><div style='font-size:40px;font-weight:700;line-height:1.1'>Lakehouse Health</div><div style='font-size:23px;color:#536784'>Delta Lake maintenance overview</div></div></div><div style='font-size:16px;color:#536784'>Last scan: "
+			& IF ( ISBLANK ( __ls ), "No scans available", FORMAT ( __ls, "dd MMM yyyy · HH:mm", "en-US" ) & " UTC" ) & "</div></div>"
+		displayFolder: HTML
+		lineageTag: f3f7dcae-f955-55a5-87e9-19a7b72719e4
+
+	measure 'Anomaly Breakdown HTML' =
+			VAR __ls = [Latest Snapshot]
+			VAR __data =
+			    ADDCOLUMNS (
+			        SUMMARIZE (
+			            FILTER ( table_health_snapshots, table_health_snapshots[snapshot_ts] = __ls ),
+			            table_health_snapshots[PotentialAnomalyDescription],
+			            table_health_snapshots[PotentialAnomalyType]
+			        ),
+			        "@n", CALCULATE ( DISTINCTCOUNT ( table_health_snapshots[table] ), table_health_snapshots[snapshot_ts] = __ls )
+			    )
+			VAR __mx = MAXX ( __data, [@n] )
+			VAR __bars =
+			    CONCATENATEX (
+			        __data,
+			        VAR __lbl = COALESCE ( table_health_snapshots[PotentialAnomalyDescription], "Unknown (health check failed)" )
+			        VAR __clr =
+			            IF (
+			                ISBLANK ( table_health_snapshots[PotentialAnomalyType] ), "#6b7280",
+			                IF ( table_health_snapshots[PotentialAnomalyType] = 0, "#2E8B57", "#D9822B" )
+			            )
+			        VAR __pct = FORMAT ( DIVIDE ( [@n], __mx, 0 ) * 100, "0" )
+			        RETURN
+			            "<div style='display:flex;align-items:center;margin:7px 0'>"
+			            & "<div style='width:34%;font-size:13px;color:#374151'>" & __lbl & "</div>"
+			            & "<div style='flex:1;background:#eef0f3;border-radius:4px;height:20px'>"
+			            & "<div style='width:" & __pct & "%;background:" & __clr & ";height:20px;border-radius:4px'></div></div>"
+			            & "<div style='width:50px;text-align:right;font-size:13px;font-weight:600;color:#1f2937'>" & [@n] & "</div></div>",
+			        "",
+			        [@n], DESC
+			    )
+			RETURN
+			"<div style='font-family:Segoe UI,Arial,sans-serif;padding:4px 8px'>"
+			& "<div style='font-size:14px;font-weight:600;color:#1f2937;margin-bottom:6px'>Tables by anomaly reason (latest snapshot)</div>"
+			& __bars & "</div>"
+		displayFolder: HTML
+		lineageTag: 2cebc985-0f96-54dc-89db-4cf34381eb14
+
+	measure 'Trend HTML' =
+			VAR __ls = [Latest Snapshot]
+			VAR __snaps = FILTER ( VALUES ( table_health_snapshots[snapshot_ts] ), table_health_snapshots[snapshot_ts] > __ls - 30 && table_health_snapshots[snapshot_ts] <= __ls )
+			VAR __data = ADDCOLUMNS ( __snaps, "@pct", VAR __n = CALCULATE ( COUNTROWS ( SUMMARIZE ( table_health_snapshots, table_health_snapshots[workspace], table_health_snapshots[lakehouse], table_health_snapshots[table] ) ) ) VAR __h = CALCULATE ( COUNTROWS ( SUMMARIZE ( table_health_snapshots, table_health_snapshots[workspace], table_health_snapshots[lakehouse], table_health_snapshots[table] ) ), KEEPFILTERS ( table_health_snapshots[status] = "healthy" ) ) RETURN DIVIDE ( COALESCE ( __h, 0 ), __n, 0 ) )
+			VAR __first = MINX ( __data, table_health_snapshots[snapshot_ts] )
+			VAR __last = MAXX ( __data, table_health_snapshots[snapshot_ts] )
+			VAR __coords = ADDCOLUMNS ( __data, "@x", 56 + DIVIDE ( table_health_snapshots[snapshot_ts] - __first, __last - __first, 0.5 ) * 754, "@y", 178 - [@pct] * 150 )
+			VAR __points = CONCATENATEX ( __coords, FORMAT ( [@x], "0.0", "en-US" ) & "," & FORMAT ( [@y], "0.0", "en-US" ), " ", table_health_snapshots[snapshot_ts], ASC )
+			VAR __dots = CONCATENATEX ( __coords, "<circle cx='" & FORMAT ( [@x], "0.0", "en-US" ) & "' cy='" & FORMAT ( [@y], "0.0", "en-US" ) & "' r='4' fill='#009E95'><title>" & FORMAT ( table_health_snapshots[snapshot_ts], "dd MMM HH:mm" ) & ": " & FORMAT ( [@pct], "0.0%" ) & "</title></circle>", "" )
+			VAR __grid = CONCATENATEX ( GENERATESERIES ( 0, 100, 20 ), "<line x1='56' x2='838' y1='" & FORMAT ( 178 - [Value] * 1.5, "0", "en-US" ) & "' y2='" & FORMAT ( 178 - [Value] * 1.5, "0", "en-US" ) & "' stroke='#D5DFEA' stroke-dasharray='3 3'/><text x='42' y='" & FORMAT ( 183 - [Value] * 1.5, "0", "en-US" ) & "' text-anchor='end' fill='#536784' font-size='14'>" & [Value] & "%</text>", "" )
+			VAR __area = "<polygon points='" & FORMAT ( MINX ( __coords, [@x] ), "0.0", "en-US" ) & ",178 " & __points & " " & FORMAT ( MAXX ( __coords, [@x] ), "0.0", "en-US" ) & ",178' fill='url(#healthFill)'/>"
+			RETURN "<div style='font-family:Segoe UI,Arial,sans-serif;color:#0B1930;padding:20px;box-sizing:border-box;height:100%;'><div style='font-size:23px;font-weight:700'>Health over time</div><div style='font-size:18px;color:#536784;margin-top:3px'>Healthy tables (%) · last 30 days</div>"
+			& IF ( COUNTROWS ( __snaps ) = 0, "<div style='padding:65px;text-align:center;color:#536784'>No saved scans in this selection</div>", "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 860 220' width='100%' height='220'><defs><linearGradient id='healthFill' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='#0EAAA0' stop-opacity='.25'/><stop offset='100%' stop-color='#0EAAA0' stop-opacity='.02'/></linearGradient></defs>" & __grid & __area & "<polyline points='" & __points & "' fill='none' stroke='#009E95' stroke-width='3'/>" & __dots & "<text x='56' y='208' fill='#536784' font-size='14'>" & FORMAT ( __first, "dd MMM", "en-US" ) & "</text><text x='810' y='208' text-anchor='end' fill='#536784' font-size='14'>" & FORMAT ( __last, "dd MMM", "en-US" ) & "</text></svg>" & IF ( COUNTROWS ( __snaps ) = 1, "<div style='font-size:12px;color:#536784'>One scan available; additional saved scans build the trend.</div>", "" ) ) & "</div>"
+		displayFolder: HTML
+		lineageTag: 35b63400-72cc-5094-9f22-bfe76d950f7e
+
+	measure 'Total Card HTML' =
+			"<div style='font-family:Segoe UI,Arial,sans-serif;color:#0B1930;display:flex;gap:30px;padding:24px;box-sizing:border-box'><div style='width:74px;height:74px;border-radius:50%;background:#EAF3F7;color:#244766;display:flex;align-items:center;justify-content:center;font-size:42px;flex-shrink:0'>▤</div><div style='flex:1'><div style='font-size:16px;font-weight:600;color:#536784;margin:3px 0 5px'>TOTAL TABLES</div><div style='font-size:60px;font-weight:700;line-height:1.1'>" & FORMAT ( [Tables], "#,0" ) & "</div><div style='font-size:18px;color:#536784;margin-top:5px'>" & "All assessed tables" & "</div>" & "</div></div>"
+		displayFolder: HTML
+		lineageTag: 0f55f2a8-ba42-5d7c-8805-68c1d975042a
+
+	measure 'Healthy Card HTML' =
+			"<div style='font-family:Segoe UI,Arial,sans-serif;color:#0B1930;display:flex;gap:30px;padding:24px;box-sizing:border-box'><div style='width:74px;height:74px;border-radius:50%;background:#E5F6F4;color:#00A69C;display:flex;align-items:center;justify-content:center;font-size:42px;flex-shrink:0'>✓</div><div style='flex:1'><div style='font-size:16px;font-weight:600;color:#536784;margin:3px 0 5px'>HEALTHY TABLES</div><div style='font-size:60px;font-weight:700;line-height:1.1'>" & IF ( [Tables] = 0, "—", FORMAT ( [Healthy %], "0.0%" ) ) & "</div><div style='font-size:18px;color:#536784;margin-top:5px'>" & FORMAT ( [Healthy], "#,0" ) & " of " & FORMAT ( [Tables], "#,0" ) & " tables" & "</div>" & "<div style='height:14px;background:#EAF0F5;border-radius:5px;margin-top:10px;overflow:hidden'><div style='height:100%;background:#0EAAA0;width:" & FORMAT ( COALESCE ( [Healthy %], 0 ) * 100, "0.0", "en-US" ) & "%'></div></div>" & "</div></div>"
+		displayFolder: HTML
+		lineageTag: 3a33b826-18ae-5b3b-80cb-6b1ee73718bc
+
+	measure 'Attention Card HTML' =
+			"<div style='font-family:Segoe UI,Arial,sans-serif;color:#0B1930;display:flex;gap:30px;padding:24px;box-sizing:border-box'><div style='width:74px;height:74px;border-radius:50%;background:#FDECEE;color:#EF4953;display:flex;align-items:center;justify-content:center;font-size:42px;flex-shrink:0'>!</div><div style='flex:1'><div style='font-size:16px;font-weight:600;color:#536784;margin:3px 0 5px'>UNHEALTHY TABLES</div><div style='font-size:60px;font-weight:700;line-height:1.1'>" & FORMAT ( [Unhealthy], "#,0" ) & "</div><div style='font-size:18px;color:#536784;margin-top:5px'>" & "Prioritize investigation" & "</div>" & "</div></div>"
+		displayFolder: HTML
+		lineageTag: 69a7c704-cc48-5516-a778-596e47193a91
+
+	measure 'Distribution HTML' =
+			VAR __total = [Tables]
+			VAR __buckets = UNION ( ROW ( "Label", "Healthy", "N", [Healthy], "Color", "#0EAAA0", "Order", 1 ), ROW ( "Label", "Unhealthy", "N", [Unhealthy], "Color", "#EF4953", "Order", 2 ), ROW ( "Label", "Unknown", "N", [Unknown], "Color", "#F7C83E", "Order", 3 ) )
+			VAR __bar = CONCATENATEX ( __buckets, "<div style='height:36px;background:" & [Color] & ";width:" & FORMAT ( DIVIDE ( [N], __total, 0 ) * 100, "0.0", "en-US" ) & "%'></div>", "", [Order], ASC )
+			VAR __rows = CONCATENATEX ( __buckets, "<div style='display:flex;align-items:center;border-bottom:1px solid #E8EEF4;padding:6px 6px;font-size:17px'><span style='color:" & [Color] & ";font-size:22px;margin-right:16px'>●</span><span style='flex:1'>" & [Label] & "</span><span style='width:95px;text-align:right'>" & FORMAT ( [N], "#,0" ) & "</span><span style='width:130px;text-align:right'>" & IF ( __total = 0, "—", FORMAT ( DIVIDE ( [N], __total ), "0.0%" ) ) & "</span></div>", "", [Order], ASC )
+			RETURN "<div style='font-family:Segoe UI,Arial,sans-serif;color:#0B1930;padding:20px;box-sizing:border-box;height:100%;'><div style='font-size:23px;font-weight:700;margin-bottom:14px'>Health distribution</div><div style='display:flex;background:#EAF0F5;border-radius:6px;overflow:hidden'>" & __bar & "</div>" & __rows & "<div style='background:#F1F5F8;border-radius:8px;padding:12px;margin-top:12px;font-size:15px;color:#244766'>ⓘ &nbsp; " & FORMAT ( [Unhealthy] + [Unknown], "#,0" ) & " tables need attention</div></div>"
+		displayFolder: HTML
+		lineageTag: 88325f0d-11ae-59a2-8518-1a393ca1a855
+
+	measure 'Priorities HTML' =
+			VAR __ls = [Latest Snapshot]
+			VAR __flagged = FILTER ( table_health_snapshots, table_health_snapshots[snapshot_ts] = __ls && table_health_snapshots[status] <> "healthy" )
+			VAR __ranked = ADDCOLUMNS ( __flagged, "@priority", SWITCH ( TRUE (), table_health_snapshots[status] = "unknown", 0, table_health_snapshots[PotentialAnomalyType] = 1, 1, 2 ) )
+			VAR __visible = TOPN ( 100, __ranked, [@priority], ASC, table_health_snapshots[FileCount], DESC, table_health_snapshots[workspace], ASC, table_health_snapshots[lakehouse], ASC, table_health_snapshots[table], ASC )
+			VAR __rows = CONCATENATEX ( __visible,
+			    VAR __unknown = table_health_snapshots[status] = "unknown"
+			    VAR __label = IF ( __unknown, "Unknown", "Unhealthy" )
+			    VAR __clr = IF ( __unknown, "#A37300", "#CF3544" )
+			    VAR __bg = IF ( __unknown, "#FFF5D7", "#FDEBED" )
+			    VAR __rawName = IF ( COUNTROWS ( SUMMARIZE ( table_health_snapshots, table_health_snapshots[workspace], table_health_snapshots[lakehouse] ) ) > 1, table_health_snapshots[workspace] & " / " & table_health_snapshots[lakehouse] & " / ", "" ) & table_health_snapshots[table]
+			    VAR __safeName = SUBSTITUTE ( SUBSTITUTE ( SUBSTITUTE ( __rawName, "&", "&amp;" ), "<", "&lt;" ), ">", "&gt;" )
+			    VAR __reason = COALESCE ( table_health_snapshots[PotentialAnomalyDescription], "Health check failed" )
+			    VAR __safeReason = SUBSTITUTE ( SUBSTITUTE ( SUBSTITUTE ( __reason, "&", "&amp;" ), "<", "&lt;" ), ">", "&gt;" )
+			    VAR __action = IF ( __unknown, "Investigate scan error", SWITCH ( table_health_snapshots[PotentialAnomalyType], 1, "Inspect Delta log / metadata", 2, "Rewrite deleted rows", 3, "Compact files", 4, "Refresh checkpoint", "Review table health" ) )
+			    RETURN "<tr><td style='font-family:Consolas,monospace;font-weight:600'>" & __safeName & "</td><td><span style='white-space:nowrap;border-radius:12px;padding:5px 12px;background:" & __bg & ";color:" & __clr & "'>● &nbsp;" & __label & "</span></td><td>" & __safeReason & "</td><td>" & IF ( ISBLANK ( table_health_snapshots[FileCount] ), "—", FORMAT ( table_health_snapshots[FileCount], "#,0" ) ) & "</td><td>" & IF ( table_health_snapshots[FileCount] > 0, FORMAT ( DIVIDE ( table_health_snapshots[FileSizeInBytes], table_health_snapshots[FileCount] * 1048576 ), "#,0.0" ) & " MB", "—" ) & "</td><td>" & __action & "</td></tr>", "", [@priority], ASC, table_health_snapshots[FileCount], DESC, table_health_snapshots[table], ASC )
+			RETURN "<div style='font-family:Segoe UI,Arial,sans-serif;color:#0B1930;padding:20px;box-sizing:border-box;height:100%;'><style>.health-priorities{width:100%;border-collapse:collapse;font-size:17px;text-align:left}.health-priorities td,.health-priorities th{padding:11px 8px;border-bottom:1px solid #DBE4ED}.health-priorities th{font-size:16px;color:#344D6C;font-weight:600;position:sticky;top:0;background:white}</style><div style='font-size:23px;font-weight:700'>Maintenance priorities</div><div style='font-size:18px;color:#536784;margin:3px 0 12px'>Flagged tables · scan errors and invalid statistics first</div><div style='height:165px;overflow:auto'><table class='health-priorities'><thead><tr><th style='width:23%'>Table</th><th style='width:14%'>Health</th><th style='width:26%'>Primary finding</th><th style='width:9%'>Files</th><th style='width:11%'>Avg. file</th><th>Suggested action</th></tr></thead><tbody>"
+			& IF ( COUNTROWS ( __flagged ) = 0, "<tr><td colspan='6'>No flagged tables in this selection.</td></tr>", __rows ) & "</tbody></table></div><div style='font-size:12px;color:#536784;margin-top:6px'>" & IF ( COUNTROWS ( __flagged ) > 100, "Showing the first 100 flagged tables. Narrow the filters to see more.", "Suggested actions require review before execution." ) & "</div></div>"
+		displayFolder: HTML
+		lineageTag: 396ecbb1-3022-508c-973f-9e7d42e6ed90
+
+	measure 'Footer HTML' =
+			"<div style='font-family:Segoe UI,Arial,sans-serif;color:#0B1930;font-size:12px;text-align:right;color:#637793;padding:4px'>Live snapshot data · Unknown means the health check failed · Trend requires saved scan history</div>"
+		displayFolder: HTML
+		lineageTag: 64a0d418-eaf6-577e-a10b-22c36f5b3b14
+
+	column snapshot_ts
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: ac46efbc-79e6-50f6-bcb4-8f92f3f8aa45
+		summarizeBy: none
+		sourceColumn: snapshot_ts
+
+	column workspace
+		dataType: string
+		lineageTag: c8a4305f-0d73-5c39-bbb7-92f131d8453c
+		summarizeBy: none
+		sourceColumn: workspace
+
+	column lakehouse
+		dataType: string
+		lineageTag: 01022fc0-ade2-5912-8e8a-cc78a8ad5a4c
+		summarizeBy: none
+		sourceColumn: lakehouse
+
+	column table
+		dataType: string
+		lineageTag: 6047ef9b-5aeb-51d3-8189-b74779627455
+		summarizeBy: none
+		sourceColumn: table
+
+	column status
+		dataType: string
+		lineageTag: ca0a3dce-09a1-57d5-af28-6377968298c2
+		summarizeBy: none
+		sourceColumn: status
+
+	column error
+		dataType: string
+		lineageTag: c0a0fc2f-770e-521c-85f2-6fbe9470aaa2
+		summarizeBy: none
+		sourceColumn: error
+
+	column PotentialAnomalyType
+		dataType: int64
+		lineageTag: 0d75bea5-aa7f-52fc-9e29-8675f823b1b0
+		summarizeBy: none
+		sourceColumn: PotentialAnomalyType
+
+	column PotentialAnomalyDescription
+		dataType: string
+		lineageTag: 4c13317a-57ea-58e1-beea-eb2fc05ed552
+		summarizeBy: none
+		sourceColumn: PotentialAnomalyDescription
+
+	column SnapshotVersion
+		dataType: int64
+		lineageTag: 258aea84-7c4b-52b0-805a-4d8f5bb092bb
+		isHidden
+		summarizeBy: none
+		sourceColumn: SnapshotVersion
+
+	column CheckpointVersion
+		dataType: int64
+		lineageTag: 061cd2ad-b893-5153-a8b6-8381510d9671
+		isHidden
+		summarizeBy: none
+		sourceColumn: CheckpointVersion
+
+	column PhysicalRowCount
+		dataType: int64
+		lineageTag: c8b1d051-1c2e-5d52-8e19-fd4c2e50cb57
+		isHidden
+		summarizeBy: none
+		sourceColumn: PhysicalRowCount
+
+	column DeletedRowCount
+		dataType: int64
+		lineageTag: c420b526-9aa8-505a-9bad-1e298c3a37de
+		isHidden
+		summarizeBy: none
+		sourceColumn: DeletedRowCount
+
+	column FileCount
+		dataType: int64
+		lineageTag: 57566893-0bb1-56b6-bdd4-5dc18f3a7888
+		isHidden
+		summarizeBy: none
+		sourceColumn: FileCount
+
+	column DeleteBitmapCount
+		dataType: int64
+		lineageTag: e72937e4-5dd6-5115-adea-36d0c2f9de26
+		isHidden
+		summarizeBy: none
+		sourceColumn: DeleteBitmapCount
+
+	column FileSizeInBytes
+		dataType: int64
+		lineageTag: dd9e6874-74c6-5fb7-b3bf-d1e4eaf14a34
+		isHidden
+		summarizeBy: none
+		sourceColumn: FileSizeInBytes
+
+	partition table_health_snapshots = entity
+		mode: directLake
+		source
+			entityName: table_health_snapshots
+			expressionSource: 'DirectLake - monitoring'
